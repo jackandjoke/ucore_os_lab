@@ -98,7 +98,63 @@ size = fwrite(buf, 1, 512, ofp);
 * 输入输出可以在make V= 里看到是obj/bootblock.out以及bin/bootblock
 ```bash
 'obj/bootblock.out' size: 488 bytes
-build 512 bytes boot sector: 'bin/bootblock' success!
+build 512 bytes boot sector: 'bin/bootblock' success! 
 ```
+
+
+# 练习2    
+* gdb显示的第一条指令是0x0000fff0, 为eip的值
+* info registers ,看到eip为0xfff0, cs 为0xf000, cs*16 + eip 应该为0xffff0，是第一条指令的地址
+* 问题是gdb里显示0x0000fff0, 但是执行的代码却是0xfffff0的代码，所以下面的hoop-stop加上$cs的值0xf0000
+* tools/gdbinit是gdb的初始化文件，加入  
+```
+define hook-stop
+x/i $pc
+end
+```
+* 可以使gdb显示地址，以及相应的汇编语句  
+### 单步调试BIOS  
+* 用x /10i 0xffff0 查看地址0xffff0附近的10条汇编，知道了要跳转到0xfe05b
+```asm
+   0xffff0: ljmp $0xf000, $0xe05b
+```
+要跳转到0xfd165
+```asm
+   0xfe05b:     cmpl   $0x0,%cs:0x6c48
+   0xfe062:     jne    0xfd2e1
+   0xfe066:     xor     %dx,%dx                 # 清零dx寄存器
+   0xfe068:     mov    %dx,%ss                  # ss置0
+   0xfe06a:     mov    $0x7000,%esp         # 栈顶指针设为0x7000
+   0xfe070:     mov    $0xf3691,%edx
+   0xfe076:     jmp    0xfd165
+```
+```asm
+   0xfd165:     mov    %eax,%ecx
+   0xfd168:     cli                                 # 设置EFLAGS的IF为0，屏蔽中断
+   0xfd169:     cld                             #DF=0, Direction flag
+   0xfd16a:     mov    $0x8f,%eax
+   0xfd170:     out    %al,$0x70        #从端口0x70输出%al
+   0xfd172:     in     $0x71,%al
+   0xfd174:     in     $0x92,%al
+   0xfd176:     or     $0x2,%al
+   0xfd178:     out    %al,$0x92    # enable A20 地址线
+   0xfd17a:     lidtw  %cs:0x6c38   # 读取idt
+   0xfd180:     lgdtw  %cs:0x6bf4  # 读取gdt
+   0xfd186:     mov    %cr0,%eax
+   0xfd189:     or     $0x1,%eax
+   0xfd18d:     mov    %eax,%cr0    #设置cr0=1, 进入保护模式
+   0xfd190:     ljmpl  $0x8,$0xfd198
+```
+
+* 刚开始为实模式，BIOS读取的第一条指令所在的地址为0xffff0, 该地址处的指令为一条跳转指令
+* 跳转之后，进行一些初始化的工作，比如设置esp, 屏蔽中段，设置DF，读取idt,gdt, 进入保护模式  
+
+###  在0x7c00设置实断点  
+###  从0x7c00跟踪代码,比较反汇编代码和bootasm.S的区别  
+* 可以不管gdbinit，直接在gdb里调试  
+* Makefile里debug里加入一些参数，可以保存调试的log  
+### 自己找一个bootloader或内核中的代码位置，设置断点并进行测试  
+
+
 
 
