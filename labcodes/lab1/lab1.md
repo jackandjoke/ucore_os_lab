@@ -150,11 +150,55 @@ end
 * 跳转之后，进行一些初始化的工作，比如设置esp, 屏蔽中段，设置DF，读取idt,gdt, 进入保护模式  
 
 ###  在0x7c00设置实断点  
+* 0x7c00是bootloader的启始地址  
 ###  从0x7c00跟踪代码,比较反汇编代码和bootasm.S的区别  
 * 可以不管gdbinit，直接在gdb里调试  
 * Makefile里debug里加入一些参数，可以保存调试的log  
 ### 自己找一个bootloader或内核中的代码位置，设置断点并进行测试  
 
+
+##3. 分析bootloader进入保护模式的过程   
+
+* 禁止中断  
+* 设置DF
+* 设置DS，ES，SS段寄存器为0，
+* 开启A20，
+* 设置cr0为1，
+* ljmp跳到保护模式  
+```asm
+    ljmp $PROT_MODE_CSEG, $protcseg  # 将CS设置为$PROT_MODE_CSEG, EIP设置为$protcseg
+```
+* 设置DS，ES，SS
+* 设置栈， ebp, esp 
+* call bootmain
+
+
+
+
+### 为何开启A20， 以及如何开启A20  
+* 在8086机器中，内存的大小只有1MB，也就是$2^{20}$，所以理论上需要20位的地址线，但是8086的地址线只有16位，所以它使用的是segment:offset的方式来访问内存地址。
+* segment:offset的原理是，将CS寄存器保存的值乘以4,然后加上EIP寄存器的值。
+* 但是ffff0h + ffffh = 10ffefh 大于1MB, 所以超过的部分就回卷  
+* 在后续的80286中，有24位的地址线，内存为16MB，为了向下兼容，就设置了A20来模拟回卷。 第21个bit来表示是否开启A20，没开启的话，就只能访问1MB的空间，若要访问高地址空间，必须要打开。  
+* 打开的方式是通过向8042键盘控制器的P21输出端口发送信号  
+* 8042有input buffer, output buffer, status register  
+* 像P21输出端口发送信号的步骤有：  
+* 先等待input buffer空闲，通过读0x64的status register 看第1个bit是否为1判断
+* 向它发送一个字节的命令0xd1,表示要写数据到P21的端口  
+* 再次等待input buffer 空闲，
+*  将0xdf 写入到0x60端口（也就是input buffer的端口）  
+
+### 如何初始化GDT表  
+* 第一个段描述符为空  
+* 第二个为code segment  (读/执行,0,0xffffffff)
+* 第三个为data segment   (写，0,0xffffffff)
+* 每个segement 由(type，基地址，长度)或者(type,base,limit,dpl)组成，分别在asm.h和mmu.h里定义的  
+* 
+
+### 如何使能和进入保护模式  
+* 通过将%cr0设置为1打开使能，
+* 然后通过ljmp进入保护模式  
+* 
 
 
 
