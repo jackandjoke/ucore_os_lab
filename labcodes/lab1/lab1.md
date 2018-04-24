@@ -217,6 +217,19 @@ end
 * 然后读取header里的program header  
 * 通过program header将需要的段加载到相应的内存里 
 * 跳转到os入口  
+
+
+## 练习5  
+### 完成kern/debug/kdebug.c中的print_stackframe函数    
+* 通过read_eip()读取到当的eip值
+* 通过read_ebp()读到当前 ebp的值  
+* 循环打印堆栈信息：
+* 传进函数的四个参数（从第一个到第四个）分别在ebp+8,ebp+12,ebp+16，ebp+20的位置  
+* 下一个ebp的位置在ebp所指向的地址里，即*(ebp指针)  
+* 下一个eip的位置在返回地址里，即*(ebp指针+1)  
+* ebp的边界在0，当ebp等于0的时候跳出循环   
+* 忽略的一个是栈不能无限的递归调用，而是有个上限，为STACKFRAME_DEPTH  
 * 
+
 
 
