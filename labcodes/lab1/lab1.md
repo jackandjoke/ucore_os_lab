@@ -200,5 +200,23 @@ end
 * 然后通过ljmp进入保护模式  
 * 
 
+## 练习4  
+### bootloader如何读取硬盘扇区的  
+* 通过CPU访问硬盘的IO地址寄存器  
+* 等待硬盘空闲，可以通过0x1f7端口判断  
+* 向0x1f2端口写入要读几个扇区，
+* 传入要读的参数，分别是0x1f3,0x1f4,0x1f5,0x1f6这个几个端口  
+* 向0x1f7端口写入要读取的命令  
+* 等待硬盘空闲  
+* 调用insl读取扇区, 每次读取都是2个字（一个字2个字节）  
+
+
+### bootloader 是如何加载ELF格式的OS  
+* 首先加载elf的header, 有8个扇区？
+* 检查magic是否为elf的magic  
+* 然后读取header里的program header  
+* 通过program header将需要的段加载到相应的内存里 
+* 跳转到os入口  
+* 
 
 
