@@ -231,5 +231,18 @@ end
 * 忽略的一个是栈不能无限的递归调用，而是有个上限，为STACKFRAME_DEPTH  
 * 
 
+## 练习6  
+### 中断描述符表（也可简称为保护模式下的中断向量表）中一个表项占多少字节？其中哪几位代表中断处理代码的入口？  
+* 一个中断描述符表项占8个字节,  第3个字节到第4个字节为segment selector, 作为GDT表的索引，取出base_address, 然后加上由第1个字节到第2个字节以及第7个字节到第8个字节组成的32位的偏移量，得到最终中断处理代码的入口。   
+
+
+### 请编程完善kern/trap/trap.c中对中断向量表进行初始化的函数idt_init。在idt_init函数中，依次对所有中断入口进行初始化。使用mmu.h中的SETGATE宏，填充idt数组内容。每个中断的入口由tools/vectors.c生成，使用trap.c中声明的vectors数组即可。  
+* trap.c 中的idt[]数组就是IDT，但是要注意的是一个idt表项的大小不是4个字节，而是8个  
+* 用SETGATE宏来设置IDT表项  
+* 每个trap都设置成interrupt gate, 且权限都是kernel访问  
+* 除了从用户态转入内核态的中断是user权限的
+* 每个trap的代码入口在__vectors中  
+* segment是global desciptor kernel text ,这些都在memlayout.h中定义的  
+* 全部设置完后再用lidt加载IDT
 
 
