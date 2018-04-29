@@ -57,7 +57,7 @@
  * `malloc`.
  *  (4.1)
  *      So you should search the free list like this:
- *          list_entry_t le = &free_list;
+ *          list_entry_t* le = &free_list;
  *          while((le=list_next(le)) != &free_list) {
  *          ...
  *      (4.1.1)
@@ -81,6 +81,7 @@
  *      (4.2)
  *          If we can not find a free block with its size >=n, then return NULL.
  * (5) `default_free_pages`:
+    Window_mgr w;
  *  re-link the pages into the free list, and may merge small free blocks into
  * the big ones.
  *  (5.1)
@@ -116,7 +117,8 @@ default_init_memmap(struct Page *base, size_t n) {
     base->property = n;
     SetPageProperty(base);
     nr_free += n;
-    list_add(&free_list, &(base->page_link));
+    //for searching by the insertion order
+    list_add_before(&free_list, &(base->page_link));
 }
 
 static struct Page *
@@ -135,12 +137,13 @@ default_alloc_pages(size_t n) {
         }
     }
     if (page != NULL) {
-        list_del(&(page->page_link));
         if (page->property > n) {
             struct Page *p = page + n;
             p->property = page->property - n;
-            list_add(&free_list, &(p->page_link));
-    }
+            SetPageProperty(p);
+            list_add_after( &(page->page_link), &(p->page_link));
+        }
+        list_del(&(page->page_link));
         nr_free -= n;
         ClearPageProperty(page);
     }
@@ -158,10 +161,9 @@ default_free_pages(struct Page *base, size_t n) {
     }
     base->property = n;
     SetPageProperty(base);
-    list_entry_t *le = list_next(&free_list);
-    while (le != &free_list) {
+    list_entry_t *le = &free_list;
+    while ( (le=list_next(le)) != &free_list) {
         p = le2page(le, page_link);
-        le = list_next(le);
         if (base + base->property == p) {
             base->property += p->property;
             ClearPageProperty(p);
@@ -175,7 +177,15 @@ default_free_pages(struct Page *base, size_t n) {
         }
     }
     nr_free += n;
-    list_add(&free_list, &(base->page_link));
+    //add to the proper postion, by ascending order
+    le = &free_list;
+    while( (le = list_next(le)) != &free_list){
+        p = le2page(le, page_link); 
+        if( p > base+base->property){
+            break;
+        }
+    }
+    list_add_before(le, &base->page_link);
 }
 
 static size_t
