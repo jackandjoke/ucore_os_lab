@@ -81,7 +81,6 @@
  *      (4.2)
  *          If we can not find a free block with its size >=n, then return NULL.
  * (5) `default_free_pages`:
-    Window_mgr w;
  *  re-link the pages into the free list, and may merge small free blocks into
  * the big ones.
  *  (5.1)
