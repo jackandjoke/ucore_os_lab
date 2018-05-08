@@ -497,6 +497,7 @@ tlb_invalidate(pde_t *pgdir, uintptr_t la) {
 struct Page *
 pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm) {
     struct Page *page = alloc_page();
+    assert(page);
     if (page != NULL) {
         if (page_insert(pgdir, page, la, perm) != 0) {
             free_page(page);
