@@ -344,6 +344,38 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     ret = -E_NO_MEM;
 
     pte_t *ptep=NULL;
+
+    ptep = get_pte(mm->pgdir,addr,1); 
+    if(ptep == NULL){
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+
+    if(*ptep == 0){
+        struct Page *pg = pgdir_alloc_page(mm->pgdir, addr, perm);
+        if(pg==NULL){
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }else{
+
+        if(swap_init_ok){
+            struct Page *page = NULL;
+            int ret = swap_in(mm, addr, &page);
+            if(ret){
+                cprintf("swap in in do_pgfault failed\n");
+                goto failed;
+            }
+            page_insert(mm->pgdir, page, addr, perm);
+            swap_map_swappable(mm,addr,page,0);  // swap_in is not used?
+            page->pra_vaddr = addr; // store the virtual address
+        }else{
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
+   
+
     /*LAB3 EXERCISE 1: YOUR CODE
     * Maybe you want help comment, BELOW comments can help you finish the code
     *
