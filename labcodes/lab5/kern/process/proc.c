@@ -115,6 +115,10 @@ alloc_proc(void) {
         proc -> tf = NULL;
         proc -> cr3 = boot_cr3;
         proc -> flags = 0;
+        proc -> wait_state = 0;
+        proc -> cptr = NULL;
+        proc -> yptr = NULL;
+        proc -> optr = NULL;
         memset(proc -> name,0,sizeof(proc -> name));
     }
     return proc;
@@ -384,6 +388,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     proc -> parent = current;
+    current->wait_state = 0;
 
     if( setup_kstack(proc)!=0 ){
         goto bad_fork_cleanup_proc;
@@ -401,7 +406,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     {
         proc -> pid = get_pid();
         hash_proc(proc);
-        list_add(&proc_list, &(proc->list_link));
+        set_links(proc);
     }
     local_intr_restore(intr_flag);
    
@@ -643,6 +648,12 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+    tf->tf_cs = USER_CS;
+    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+    tf->tf_esp = USTACKTOP;
+    tf->tf_eip = elf->e_entry;
+    tf->tf_eflags |= FL_IF;
+
     ret = 0;
 out:
     return ret;
