@@ -120,6 +120,13 @@ alloc_proc(void) {
         proc -> yptr = NULL;
         proc -> optr = NULL;
         memset(proc -> name,0,sizeof(proc -> name));
+
+        proc -> rq = NULL;
+        list_init(&proc -> run_link);
+        proc -> time_slice = 0;
+        skew_heap_init(&proc -> lab6_run_pool);
+        proc -> lab6_stride = 0;
+        proc -> lab6_priority = 0;
      //LAB5 YOUR CODE : (update LAB4 steps)
     /*
      * below fields(add in LAB5) in proc_struct need to be initialized	
