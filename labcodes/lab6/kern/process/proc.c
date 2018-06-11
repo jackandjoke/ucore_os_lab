@@ -103,6 +103,23 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+        proc -> state = PROC_UNINIT;
+        proc -> pid = -1;
+        proc -> runs = 0;
+        proc -> kstack = 0;
+        proc -> need_resched = 0;
+        proc -> parent = NULL;
+        proc -> mm = NULL;
+        memset( &proc -> context,0,sizeof(proc -> context));
+//        proc -> context = (struct context){0,0,0,0,0,0,0,0};
+        proc -> tf = NULL;
+        proc -> cr3 = boot_cr3;
+        proc -> flags = 0;
+        proc -> wait_state = 0;
+        proc -> cptr = NULL;
+        proc -> yptr = NULL;
+        proc -> optr = NULL;
+        memset(proc -> name,0,sizeof(proc -> name));
      //LAB5 YOUR CODE : (update LAB4 steps)
     /*
      * below fields(add in LAB5) in proc_struct need to be initialized	
@@ -380,6 +397,41 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     ret = -E_NO_MEM;
+
+    proc = alloc_proc();
+    if(proc == NULL){
+        //stderr no mem for PCB 
+        goto fork_out;
+    }
+    proc -> parent = current;
+    current->wait_state = 0;
+
+    if( setup_kstack(proc)!=0 ){
+        goto bad_fork_cleanup_proc;
+    }
+    //do nothing 
+
+    if( copy_mm(clone_flags, proc) !=0){
+        goto bad_fork_cleanup_kstack;
+    }
+
+    copy_thread(proc, stack, tf);
+
+    bool intr_flag;
+    local_intr_save(intr_flag);
+    {
+        proc -> pid = get_pid();
+        hash_proc(proc);
+        set_links(proc);
+    }
+    local_intr_restore(intr_flag);
+   
+    wakeup_proc(proc);
+    
+    ret = proc -> pid;
+
+
+
     //LAB4:EXERCISE2 YOUR CODE
     /*
      * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
@@ -612,6 +664,12 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+    tf->tf_cs = USER_CS;
+    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+    tf->tf_esp = USTACKTOP;
+    tf->tf_eip = elf->e_entry;
+    tf->tf_eflags |= FL_IF;
+
     ret = 0;
 out:
     return ret;
